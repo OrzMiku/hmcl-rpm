@@ -1,9 +1,9 @@
-Name:           hmcl-stable
-Version:        3.15.3
+Name:           hmcl-beta
+Version:        3.16.0.348
 Release:        1%{?dist}
 Summary:        A Minecraft Launcher which is multi-functional, cross-platform and popular.
 
-Conflicts:      hmcl-beta
+Conflicts:      hmcl-stable
 Provides:       hmcl = %{version}-%{release}
 
 License:        GPL-3.0-only
@@ -47,7 +47,7 @@ if [ -z "${HMCL_USER_HOME:-}" ]; then
 fi
 
 if [ -z "${HMCL_LOCAL_HOME:-}" ]; then
-    HMCL_LOCAL_HOME="$HMCL_USER_HOME/local-stable"
+    HMCL_LOCAL_HOME="$HMCL_USER_HOME/local-beta"
     export HMCL_LOCAL_HOME
 fi
 
@@ -62,7 +62,7 @@ EOF
 install -Dm0644 /dev/stdin %{buildroot}%{_datadir}/applications/%{name}.desktop <<'EOF'
 [Desktop Entry]
 Type=Application
-Name=HMCL Stable
+Name=HMCL Beta
 GenericName=Minecraft Launcher
 Comment=Hello Minecraft! Launcher
 Exec=%{name}
@@ -83,9 +83,6 @@ EOF
 
 
 %changelog
-* Sat Jul 11 2026 OrzMiku <miku@ecy.pink> - 3.15.3-1
-* Thu Jul 02 2026 OrzMiku <miku@ecy.pink> - 3.15.2-2
-- Update to 3.15.2.
-- Add stable/beta package conflict and isolate stable runtime data.
-* Fri Jun 19 2026 OrzMiku <miku@ecy.pink> - 3.15.1-4
-- Initial package.
+* Wed Jul 01 2026 OrzMiku <miku@ecy.pink> - 3.16.0.348-1
+* Wed Jul 01 2026 OrzMiku <miku@ecy.pink> - 3.16.0.347-1
+- Initial beta package.
