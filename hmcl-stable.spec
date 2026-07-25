@@ -1,5 +1,5 @@
 Name:           hmcl-stable
-Version:        3.15.3
+Version:        3.16.3
 Release:        1%{?dist}
 Summary:        A Minecraft Launcher which is multi-functional, cross-platform and popular.
 
@@ -83,6 +83,8 @@ EOF
 
 
 %changelog
+* Sun Jul 26 2026 OrzMiku <miku@ecy.pink> - 3.16.3-1
+* Thu Jul 16 2026 OrzMiku <miku@ecy.pink> - 3.16.2-1
 * Sat Jul 11 2026 OrzMiku <miku@ecy.pink> - 3.15.3-1
 * Thu Jul 02 2026 OrzMiku <miku@ecy.pink> - 3.15.2-2
 - Update to 3.15.2.
