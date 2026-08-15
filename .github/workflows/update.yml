@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
+    inputs:
+      force-build:
+        description: "Trigger a COPR rebuild of the current specs even if upstream did not change"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: write
@@ -15,40 +21,50 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
+    # Bounds the whole run; the COPR wait itself is additionally capped below.
+    timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
+          fetch-depth: 0
 
       - name: Check upstream releases
         id: update
         env:
           GH_TOKEN: ${{ github.token }}
+          FORCE_BUILD: ${{ inputs.force-build }}
         run: |
           set -euo pipefail
 
-          curl --fail --silent --show-error \
-            --header "Authorization: Bearer $GH_TOKEN" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            --output "$RUNNER_TEMP/hmcl-releases.json" \
-            "https://api.github.com/repos/HMCL-dev/HMCL/releases?per_page=100"
+          # --paginate merges every page, so the newest stable is never missed
+          # behind hundreds of beta releases (HMCL has 300+ releases).
+          gh api --paginate \
+            'repos/HMCL-dev/HMCL/releases?per_page=100' \
+            > "$RUNNER_TEMP/hmcl-releases.json"
 
+          # Newest tag matching $1 (anchored regex), optionally restricted by the
+          # release prerelease flag ($2: true / false / null = don't care).
           latest() {
-            jq -r --arg pattern "$1" \
-              '[.[] | select(.draft == false) | .tag_name | select(test($pattern))][0] | ltrimstr("v")' \
+            jq -r --arg pattern "$1" --argjson prerelease "$2" \
+              '[.[] | select(.draft == false) | select($prerelease == null or .prerelease == $prerelease) | .tag_name | select(test($pattern))][0] | ltrimstr("v")' \
               "$RUNNER_TEMP/hmcl-releases.json"
           }
 
           changed=()
           update_spec() {
             local spec="$1" version="$2" current
+            if [[ -z "$version" ]]; then
+              echo "No upstream release matching the pattern for $spec; nothing to do" >&2
+              return 0
+            fi
             current="$(awk '$1 == "Version:" { print $2; exit }' "$spec")"
 
             [[ "$version" =~ ^[0-9]+(\.[0-9]+)+$ ]] || {
               echo "Invalid upstream version: $version" >&2
               exit 1
             }
-            [[ "$version" == "$current" ]] && return
+            [[ "$version" == "$current" ]] && return 0
             [[ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -n 1)" == "$version" ]] || {
               echo "Refusing to downgrade $spec from $current to $version" >&2
               exit 1
@@ -59,16 +75,26 @@ jobs:
             changed+=("$spec")
           }
 
-          update_spec hmcl-stable.spec "$(latest '^v[0-9]+\.[0-9]+\.[0-9]+$')"
-          update_spec hmcl-beta.spec "$(latest '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')"
+          # Stable: newest non-prerelease 3-component tag (upstream marks release
+          # candidates as prereleases, so an RC must never become the "stable").
+          update_spec hmcl-stable.spec "$(latest '^v[0-9]+\.[0-9]+\.[0-9]+$' false)"
+          # Beta: newest 4-component tag (all beta tags are prereleases upstream).
+          update_spec hmcl-beta.spec "$(latest '^v[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$' null)"
+
+          build_specs=("${changed[@]}")
+          if [[ ${#build_specs[@]} -eq 0 && "${FORCE_BUILD}" == "true" ]]; then
+            build_specs=(hmcl-stable.spec hmcl-beta.spec)
+          fi
+
           git diff --check
           printf 'specs=%s\n' "${changed[*]}" >> "$GITHUB_OUTPUT"
+          printf 'build_specs=%s\n' "${build_specs[*]}" >> "$GITHUB_OUTPUT"
 
       - name: Build in COPR
-        if: steps.update.outputs.specs != ''
+        if: steps.update.outputs.build_specs != ''
         env:
           COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
-          SPECS: ${{ steps.update.outputs.specs }}
+          SPECS: ${{ steps.update.outputs.build_specs }}
         run: |
           set -euo pipefail
           test -n "$COPR_CONFIG" || { echo "COPR_CONFIG secret is not set" >&2; exit 1; }
@@ -77,7 +103,17 @@ jobs:
           "$RUNNER_TEMP/copr/bin/pip" install copr-cli rich
           install -d -m 0700 "$HOME/.config"
           install -m 0600 /dev/stdin "$HOME/.config/copr" <<< "$COPR_CONFIG"
-          "$RUNNER_TEMP/copr/bin/copr-cli" build hmcl "${specs[@]}"
+
+          # copr-cli submits the build and then watches it until it finishes,
+          # failing with a non-zero exit if any chroot build fails, so a broken
+          # update is never committed. The timeout is a safety net for long
+          # COPR queues: the run then fails visibly and the next scheduled run
+          # retries the same version bump.
+          timeout 1500 "$RUNNER_TEMP/copr/bin/copr-cli" build hmcl "${specs[@]}" || {
+            echo "COPR build for ${specs[*]} did not finish within 25 minutes or failed" >&2
+            echo "See https://copr.fedorainfracloud.org/coprs/orzmiku/hmcl/ for build status" >&2
+            exit 1
+          }
 
       - name: Commit update
         if: steps.update.outputs.specs != ''
@@ -89,5 +125,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -- "${specs[@]}"
-          git commit -m "update hmcl"
+
+          versions=""
+          for spec in "${specs[@]}"; do
+            name="$(awk '$1 == "Name:" { print $2; exit }' "$spec")"
+            ver="$(awk '$1 == "Version:" { print $2; exit }' "$spec")"
+            versions="${versions:+$versions, }$name-$ver"
+          done
+          git commit -m "update hmcl: $versions"
+
+          # Rebase onto the latest main so a manual commit cannot race the push.
+          git pull --rebase origin main
           git push origin HEAD:main

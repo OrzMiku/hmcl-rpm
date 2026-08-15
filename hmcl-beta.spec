@@ -1,6 +1,6 @@
 Name:           hmcl-beta
 Version:        3.17.0.354
-Release:        1%{?dist}
+Release:        2%{?dist}
 Summary:        A Minecraft Launcher which is multi-functional, cross-platform and popular.
 
 Conflicts:      hmcl-stable
@@ -15,8 +15,15 @@ Source3:        https://raw.githubusercontent.com/HMCL-dev/HMCL/v%{version}/HMCL
 Source4:        https://raw.githubusercontent.com/HMCL-dev/HMCL/v%{version}/HMCL/src/main/resources/assets/img/icon@4x.png
 Source5:        https://raw.githubusercontent.com/HMCL-dev/HMCL/v%{version}/HMCL/src/main/resources/assets/img/icon@8x.png
 
-Requires:       java-25-openjdk
+# HMCL needs Java 17+ at runtime (its boot loader refuses to start on older
+# Javas), so depend on the virtual java-headless capability instead of pinning
+# a specific JDK major version; this also keeps builds working on older distros.
+Requires:       java-headless
+BuildRequires:  desktop-file-utils
 BuildArch:      noarch
+
+# %%_licensedir is defined on Fedora >= 35 / RHEL >= 9.2; provide a fallback.
+%{!?_licensedir:%global _licensedir %{_datadir}/licenses}
 
 %description
 HMCL is an open-source, cross-platform Minecraft launcher that supports Mod Management, Game Customizing, ModLoader Installing (Forge, NeoForge, Cleanroom, Fabric, Legacy Fabric, Quilt, LiteLoader, and OptiFine), Modpack Creating, UI Customization, and more.
@@ -56,6 +63,11 @@ if [ -z "${HMCL_DEPENDENCIES_DIR:-}" ]; then
     export HMCL_DEPENDENCIES_DIR
 fi
 
+if ! command -v java >/dev/null 2>&1; then
+    echo "%{name}: no java runtime found (Java 17+ required)" >&2
+    exit 1
+fi
+
 exec java -jar %{_datadir}/%{name}/%{name}.jar "$@"
 EOF
 
@@ -74,6 +86,10 @@ Keywords=HMCL;Minecraft;Game;
 EOF
 
 
+%check
+desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
+
+
 %files
 %license %{_licensedir}/%{name}/LICENSE
 %{_bindir}/%{name}
@@ -83,6 +99,10 @@ EOF
 
 
 %changelog
+* Sat Aug 15 2026 OrzMiku <miku@ecy.pink> - 3.17.0.354-2
+- Require java-headless instead of a pinned JDK (HMCL needs Java 17+).
+- Validate the desktop file with desktop-file-validate.
+- Fall back for %_licensedir and check for java in the launcher script.
 * Tue Aug 11 2026 OrzMiku <miku@ecy.pink> - 3.17.0.354-1
 * Fri Aug 07 2026 OrzMiku <miku@ecy.pink> - 3.17.0.353-1
 * Sun Jul 26 2026 OrzMiku <miku@ecy.pink> - 3.17.0.351-1

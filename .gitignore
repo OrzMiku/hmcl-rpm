@@ -1,0 +1,4 @@
+# Local build artifacts
+*.rpm
+*.src.rpm
+*.jar
