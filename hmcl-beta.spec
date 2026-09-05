@@ -1,5 +1,5 @@
 Name:           hmcl-beta
-Version:        3.17.0.354
+Version:        3.17.0.355
 Release:        2%{?dist}
 Summary:        A Minecraft Launcher which is multi-functional, cross-platform and popular.
 
@@ -99,6 +99,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 
 
 %changelog
+* Sat Sep 05 2026 OrzMiku <miku@ecy.pink> - 3.17.0.355-1
 * Sat Aug 15 2026 OrzMiku <miku@ecy.pink> - 3.17.0.354-2
 - Require java-headless instead of a pinned JDK (HMCL needs Java 17+).
 - Validate the desktop file with desktop-file-validate.
