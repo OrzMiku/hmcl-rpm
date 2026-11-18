@@ -1,5 +1,5 @@
 Name:           hmcl-beta
-Version:        3.18.0.366
+Version:        3.18.0.367
 Release:        2%{?dist}
 Summary:        A Minecraft Launcher which is multi-functional, cross-platform and popular.
 
@@ -99,6 +99,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 
 
 %changelog
+* Wed Nov 18 2026 OrzMiku <miku@ecy.pink> - 3.18.0.367-1
 * Sun Nov 15 2026 OrzMiku <miku@ecy.pink> - 3.18.0.366-1
 * Sun Nov 08 2026 OrzMiku <miku@ecy.pink> - 3.17.0.365-1
 * Sun Nov 01 2026 OrzMiku <miku@ecy.pink> - 3.17.0.364-1
