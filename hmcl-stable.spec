@@ -1,5 +1,5 @@
 Name:           hmcl-stable
-Version:        3.16.4
+Version:        3.17.2
 Release:        2%{?dist}
 Summary:        A Minecraft Launcher which is multi-functional, cross-platform and popular.
 
@@ -99,6 +99,7 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/%{name}.desktop
 
 
 %changelog
+* Fri Nov 20 2026 OrzMiku <miku@ecy.pink> - 3.17.2-1
 * Mon Oct 05 2026 OrzMiku <miku@ecy.pink> - 3.16.4-1
 * Sat Aug 15 2026 OrzMiku <miku@ecy.pink> - 3.16.3-2
 - Require java-headless instead of a pinned JDK (HMCL needs Java 17+).
